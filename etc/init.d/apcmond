@@ -1,0 +1,77 @@
+#!/bin/sh
+
+APCMOND=/usr/sbin/apcmond	# 'apcmond' is a symlink to /usr/sbin/upsmon/apcmond.py
+APCMOND_TAG=apcmond
+#APCMOND_SCHED_PARAM="++group=net-daemons"
+APCMOND_SCHED_PARAM="++group=upsd"
+APCMOND_OPTS=""			# Due to complexity of the below 'start' command it is not recommended to pass command-line parameters through this script.
+APCMOND_PARAMS=""
+#APCMOND_PID_FILE="/var/run/apcmond.pid"
+MAX_RETRIES=5
+
+start() {
+   echo 'apcmond.sh -> start()'
+
+   if [ -z "$(pidof -xs "${APCMOND}")" ] ; then
+      if [ -z "${APCMOND_PID_FILE}" ]; then
+         /sbin/watchdog2.sh ++mincritical,memreliable                          -d -s "${APCMOND_TAG}" -t "${MAX_RETRIES}" "${APCMOND}" "${APCMOND_SCHED_PARAM}" ${APCMOND_OPTS}
+	 # >/dev/null 2>&1
+      else
+         /sbin/watchdog2.sh ++mincritical,memreliable -b "${APCMOND_PID_FILE}" -d -s "${APCMOND_TAG}" -t "${MAX_RETRIES}" "${APCMOND}" "${APCMOND_SCHED_PARAM}" ${APCMOND_OPTS}
+	 # >/dev/null 2>&1
+      fi
+      echo "${APCMOND_TAG} started"
+   else
+      echo "${APCMOND_TAG} already running"
+   fi
+}
+
+stop() {
+   echo 'apcmond.sh -> stop()'
+
+   if [ -n "$(pidof -xs "${APCMOND}")" ] ; then
+      if [ -z "${APCMOND_PID_FILE}" ]; then
+         /sbin/watchdog2.sh -k "${APCMOND_TAG}"
+      else
+         /sbin/watchdog2.sh -b "${APCMOND_PID_FILE}" -k "${APCMOND_TAG}"
+      fi
+      pkill -9 "${APCMOND}"
+      echo "${APCMOND_TAG} stopped"
+   else
+      echo "${APCMOND_TAG} is not running"
+   fi
+}
+
+case "${1}" in
+   "start")
+      start
+   ;;
+   "stop")
+      stop
+   ;;
+   "status")
+      echo 'apcmond.sh -> status'
+      echo "pidof -xs $APCMOND = $(pidof -xs "${APCMOND}")"
+
+      if [ -n "$(pidof -xs "${APCMOND}")" ] ; then
+         echo "${APCMOND_TAG} is running"
+         exit 0
+      else
+         echo "${APCMOND_TAG} is not running"
+         exit 3
+      fi
+   ;;
+   "restart")
+      stop
+
+      while [ -n "$(pidof -xs "${APCMOND}")" ] ; do
+         sleep 1
+      done
+
+      start
+   ;;
+   *)
+      echo "Usage: $(basename ${0}) {start|stop|status|restart}"
+      exit 1
+   ;;
+esac

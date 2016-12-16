@@ -1,0 +1,58 @@
+#!/bin/sh
+
+NUTMOND=/usr/sbin/nutmond	# 'nutmond' is a symlink to /usr/sbin/upsmon/nutmond.py
+NUTMOND_TAG=nutmond
+NUTMOND_SCHED_PARAM="++group=upsd"
+NUTMOND_OPTS=""			# Due to complexity of the below 'start' command it is not recommended to pass command-line parameters through this script.
+NUTMOND_PARAMS=""
+MAX_RETRIES=5
+
+start() {
+   if [ -z "$(pidof -xs "${NUTMOND}")" ] ; then
+      /sbin/watchdog.sh ++mincritical,memreliable -d -s "${NUTMOND_TAG}" -t "${MAX_RETRIES}" "${NUTMOND}" "${NUTMOND_SCHED_PARAM}" ${NUTMOND_OPTS} >/dev/null 2>&1
+      echo "${NUTMOND_TAG} started"
+   else
+      echo "${NUTMOND_TAG} already running"
+   fi
+}
+
+stop() {
+   if [ -n "$(pidof -xs "${NUTMOND}")" ] ; then
+      /sbin/watchdog.sh -k "${NUTMOND_TAG}"
+      pkill -9 "${NUTMOND}"
+      echo "${NUTMOND_TAG} stopped"
+   else
+      echo "${NUTMOND_TAG} is not running"
+   fi
+}
+
+case "${1}" in
+   "start")
+      start
+   ;;
+   "stop")
+      stop
+   ;;
+   "status")
+      if [ -n "$(pidof -xs "${NUTMOND}")" ] ; then
+         echo "${NUTMOND_TAG} is running"
+         exit 0
+      else
+         echo "${NUTMOND_TAG} is not running"
+         exit 3
+      fi
+   ;;
+   "restart")
+      stop
+
+      while [ -n "$(pidof -xs "${NUTMOND}")" ] ; do
+         sleep 1
+      done
+
+      start
+   ;;
+   *)
+      echo "Usage: $(basename ${0}) {start|stop|status|restart}"
+      exit 1
+   ;;
+esac
