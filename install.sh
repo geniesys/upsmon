@@ -1,7 +1,11 @@
+#!/bin/sh
 
-# These shell scripts that are necessary to run UPS monitors as demons (services)
-# It allows us to start it when system starts as well as use 'start', 'stop',
-# 'restart' and 'status' commands when it is already running ( $ /etc/init.d/apcmond restart )
+# APC and NUT UPS Service Monitor Installation script.
+
+if [[ $(id -u) -ne 0 ]] ; then
+   echo "Please run as root";
+   exit 1;
+fi
 
 cp -p ./etc/init.d/apcmond /etc/init.d/apcmond
 cp -p ./etc/init.d/nutmond /etc/init.d/nutmond
